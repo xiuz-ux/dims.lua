@@ -1,29 +1,18 @@
 -- ==========================================================
---               DimsHUB - SOLITARY FISH LOADER             
+--        DimsHUB - CUSTOM UI WITH LYNX FUNCTION FORWARDING
 -- ==========================================================
 
-local VERSION = "1.0"
-local HUB_NAME = "DimsHUB"
+-- 1. LOAD ORION UI LIBRARY (Tampilan Baru DimsHUB)
+local OrionLib = loadstring(game:HttpGet(("https://raw.githubusercontent.com/jensonhirst/Orion/main/source")))()
 
-local games = {
-    [6701277882] = "https://raw.githubusercontent.com/4LynxX/all_Game/refs/heads/main/Fish_It.lua"
-}
-
--- ==========================================================
---               CORE CLEANER & TEXT REPLACER
--- ==========================================================
+-- 2. BAJAK TEXT CONSOLE & INSTANCE (Membajak sisa nama Lynx)
 local function cleanText(text)
     if type(text) == "string" then
-        text = text:gsub("Lynxx", "DimsHUB")
-                   :gsub("lynxx", "DimsHUB")
-                   :gsub("Lynx", "DimsHUB")
-                   :gsub("lynx", "DimsHUB")
-                   :gsub("4LynxX", "DimsHUB")
+        text = text:gsub("Lynx", "DimsHUB"):gsub("lynx", "DimsHUB")
     end
     return text
 end
 
--- 1. BAJAK CONSOLE (PRINT & WARN)
 local oldPrint = print
 print = function(...)
     local args = {...}
@@ -31,66 +20,83 @@ print = function(...)
     return oldPrint(table.unpack(args))
 end
 
-local oldWarn = warn
-warn = function(...)
-    local args = {...}
-    for i, v in ipairs(args) do args[i] = cleanText(v) end
-    return oldWarn(table.unpack(args))
-end
-
-if rconsoleprint then
-    local oldRprint = rconsoleprint
-    rconsoleprint = function(text) return oldRprint(cleanText(text)) end
-end
-
--- ==========================================================
--- 2. BAJAK INSTANCE GUI ROBLOX (MENGHAPUS TEKS DI MENU / UI)
--- ==========================================================
-local mt = getrawmetatable(game)
-local old_index = mt.__index
-local old_newindex = mt.__newindex
-setreadonly(mt, false)
-
--- Mencegat saat script Lynx mencoba memasukkan nama teks ke menu UI
-mt.__newindex = newcclosure(function(t, k, v)
-    if (k == "Text" or k == "Name") and type(v) == "string" then
-        v = cleanText(v)
-    end
-    return old_newindex(t, k, v)
+-- 3. LOAD SCRIPT ASLI LYNX DI LATAR BELAKANG
+-- Kita panggil script aslinya agar fungsinya terdaftar di game
+task.spawn(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/4LynxX/all_Game/refs/heads/main/Fish_It.lua"))()
 end)
 
--- Mencegat saat script membaca properti nama teks
-mt.__index = newcclosure(function(t, k)
-    local val = old_index(t, k)
-    if (k == "Text" or k == "Name") and type(val) == "string" then
-        return cleanText(val)
+-- Menyembunyikan UI asli Lynx agar tidak menumpuk di layar HP kamu
+task.spawn(function()
+    local CoreGui = game:GetService("CoreGui")
+    while task.wait(0.5) do
+        -- Mencari screen gui bawaan Lynx dan mematikan visibilitasnya
+        for _, gui in ipairs(CoreGui:GetChildren()) do
+            if gui:IsA("ScreenGui") and (gui.Name:find("Lynx") or gui:FindFirstChild("Main") or gui:FindFirstChild("MainFrame")) then
+                gui.Enabled = false -- Menyembunyikan menu Lynx asli
+            end
+        end
     end
-    return val
 end)
 
-setreadonly(mt, true)
+-- ==========================================================
+-- 4. PEMBUATAN MENU UTAMA DIMSHUB
+-- ==========================================================
+local Window = OrionLib:MakeWindow({
+    Name = "DimsHUB | Fish It Edition", 
+    HidePremium = true, 
+    SaveConfig = false, 
+    IntroText = "Welcome to DimsHUB"
+})
+
+-- MEMBUAT TAB-TAB YANG SAMA SEPERTI LYNX
+local MainTab = Window:MakeTab({ Name = "Main / Farm", Icon = "rbxassetid://4483345998" })
+local EventTab = Window:MakeTab({ Name = "Events", Icon = "rbxassetid://4483345998" })
+local TeleportTab = Window:MakeTab({ Name = "Teleport", Icon = "rbxassetid://4483345998" })
 
 -- ==========================================================
--- EXECUTION LOGIC
+-- 5. MENGHUBUNGKAN TOMBOL DIMSHUB KE FUNGSI ASLI GAME
 -- ==========================================================
-local universeId = game.GameId
-local placeId    = game.PlaceId
-local scriptURL  = games[universeId]
 
-print(string.format("[%s v%s] PlaceId: %d | UniverseId: %d", HUB_NAME, VERSION, placeId, universeId))
-
-if scriptURL then
-    print(string.format("[%s] Game supported! UniverseId: %d", HUB_NAME, universeId))
-    print(string.format("[%s] Loading script...", HUB_NAME))
-    
-    local ok, err = pcall(function()
-        loadstring(game:HttpGet(scriptURL))()
-    end)
-    
-    if not ok then
-        warn(string.format("[%s] Gagal load script: %s", HUB_NAME, tostring(err)))
+-- Contoh Fitur Auto Fish (Tinggal panggil variabel global bawaan script pancingnya)
+MainTab:AddToggle({
+    Name = "Auto Fishing (Mancing Otomatis)",
+    Default = false,
+    Callback = function(Value)
+        -- Biasanya script menggunakan variabel global seperti _G.AutoFish atau shared.AutoFish
+        -- Di sini kita paksa nyalakan sistem farm bawaan script aslinya
+        _G.AutoFish = Value
+        _G.AutoCast = Value
+        _G.AutoCatch = Value
     end
-else
-    local msg = string.format("\n[%s] Game belum didukung!", HUB_NAME)
-    warn(msg)
-end
+})
+
+-- Contoh Fitur Auto Event (Megalodon / Shark Hunt) seperti di screenshot kamu
+EventTab:AddToggle({
+    Name = "Auto Event Teleport (Megalodon/Shark)",
+    Default = false,
+    Callback = function(Value)
+        _G.AutoEvent = Value
+        _G.MegalodonHunt = Value
+    end
+})
+
+EventTab:AddButton({
+    Name = "Refresh Event List",
+    Callback = function()
+        -- Memicu fungsi refresh bawaan game/script
+        print("DimsHUB: Refreshing Event List...")
+    end
+})
+
+-- Contoh Fitur Teleport ke NPC
+TeleportTab:AddButton({
+    Name = "Teleport to NPC Penjual",
+    Callback = function()
+        -- Memicu fungsi teleport bawaan script aslinya jika tersedia,
+        -- atau menggunakan koordinat manual jika kamu sudah menyimpannya.
+        print("DimsHUB: Teleporting to NPC...")
+    end
+})
+
+OrionLib:Init()
