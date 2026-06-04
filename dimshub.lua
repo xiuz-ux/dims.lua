@@ -1,18 +1,16 @@
 -- ==========================================================
---        DimsHUB - CUSTOM UI WITH LYNX FUNCTION FORWARDING
+--        DimsHUB - PERFECT UI HIJACKER & FUNCTION BINDER
 -- ==========================================================
 
--- 1. LOAD ORION UI LIBRARY (Tampilan Baru DimsHUB)
 local OrionLib = loadstring(game:HttpGet(("https://raw.githubusercontent.com/jensonhirst/Orion/main/source")))()
 
--- 2. BAJAK TEXT CONSOLE & INSTANCE (Membajak sisa nama Lynx)
+-- Pembersih Teks Console
 local function cleanText(text)
     if type(text) == "string" then
-        text = text:gsub("Lynx", "DimsHUB"):gsub("lynx", "DimsHUB")
+        return text:gsub("Lynx", "DimsHUB"):gsub("lynx", "DimsHUB")
     end
     return text
 end
-
 local oldPrint = print
 print = function(...)
     local args = {...}
@@ -20,83 +18,106 @@ print = function(...)
     return oldPrint(table.unpack(args))
 end
 
--- 3. LOAD SCRIPT ASLI LYNX DI LATAR BELAKANG
--- Kita panggil script aslinya agar fungsinya terdaftar di game
+-- Tempat menyimpan fungsi asli dari tombol Lynx
+local LynxFunctions = {
+    AutoFish = nil,
+    AutoEvent = nil,
+    TeleportNPC = nil
+}
+
+-- 1. BAJAK INSTANCE (Mencuri fungsi klik dari tombol asli Lynx sebelum disembunyikan)
+local oldInstanceNew = Instance.new
+Instance.new = function(className, parent)
+    local obj = oldInstanceNew(className, parent)
+    
+    if className == "TextButton" or className == "MouseButton1Click" then
+        -- Deteksi tombol berdasarkan teksnya di menu Lynx
+        task.defer(function()
+            if obj.Text:find("Mancing") or obj.Text:find("Fishing") or obj.Text:find("Auto Farm") then
+                -- Simpan fungsi klik asli untuk Auto Fish
+                local connections = getconnections(obj.MouseButton1Click)
+                if connections[1] then LynxFunctions.AutoFish = connections[1].Function end
+            elseif obj.Text:find("Event") or obj.Text:find("Megalodon") then
+                local connections = getconnections(obj.MouseButton1Click)
+                if connections[1] then LynxFunctions.AutoEvent = connections[1].Function end
+            elseif obj.Text:find("NPC") or obj.Text:find("Teleport to NPC") then
+                local connections = getconnections(obj.MouseButton1Click)
+                if connections[1] then LynxFunctions.TeleportNPC = connections[1].Function end
+            end
+        end)
+    end
+    return obj
+end
+
+-- 2. JALANKAN SCRIPT LYNX & SEMBUNYIKAN UI-NYA
 task.spawn(function()
     loadstring(game:HttpGet("https://raw.githubusercontent.com/4LynxX/all_Game/refs/heads/main/Fish_It.lua"))()
 end)
 
--- Menyembunyikan UI asli Lynx agar tidak menumpuk di layar HP kamu
 task.spawn(function()
     local CoreGui = game:GetService("CoreGui")
     while task.wait(0.5) do
-        -- Mencari screen gui bawaan Lynx dan mematikan visibilitasnya
         for _, gui in ipairs(CoreGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and (gui.Name:find("Lynx") or gui:FindFirstChild("Main") or gui:FindFirstChild("MainFrame")) then
-                gui.Enabled = false -- Menyembunyikan menu Lynx asli
+            if gui:IsA("ScreenGui") and (gui.Name:find("Lynx") or gui:FindFirstChild("MainFrame") or gui:FindFirstChild("Main")) then
+                gui.Enabled = false -- Menu oranye Lynx disembunyikan, tidak akan muncul di layar
             end
         end
     end
 end)
 
 -- ==========================================================
--- 4. PEMBUATAN MENU UTAMA DIMSHUB
+-- 3. MEMBUAT TAMPILAN BARU DIMSHUB (ORION UI)
 -- ==========================================================
 local Window = OrionLib:MakeWindow({
     Name = "DimsHUB | Fish It Edition", 
     HidePremium = true, 
     SaveConfig = false, 
-    IntroText = "Welcome to DimsHUB"
+    IntroText = "Loading DimsHUB UI..."
 })
 
--- MEMBUAT TAB-TAB YANG SAMA SEPERTI LYNX
 local MainTab = Window:MakeTab({ Name = "Main / Farm", Icon = "rbxassetid://4483345998" })
 local EventTab = Window:MakeTab({ Name = "Events", Icon = "rbxassetid://4483345998" })
 local TeleportTab = Window:MakeTab({ Name = "Teleport", Icon = "rbxassetid://4483345998" })
 
--- ==========================================================
--- 5. MENGHUBUNGKAN TOMBOL DIMSHUB KE FUNGSI ASLI GAME
--- ==========================================================
-
--- Contoh Fitur Auto Fish (Tinggal panggil variabel global bawaan script pancingnya)
+-- 4. HUBUNGKAN TOMBOL BARU KE FUNGSI YANG SUDAH DICURI
 MainTab:AddToggle({
     Name = "Auto Fishing (Mancing Otomatis)",
     Default = false,
     Callback = function(Value)
-        -- Biasanya script menggunakan variabel global seperti _G.AutoFish atau shared.AutoFish
-        -- Di sini kita paksa nyalakan sistem farm bawaan script aslinya
-        _G.AutoFish = Value
-        _G.AutoCast = Value
-        _G.AutoCatch = Value
+        if LynxFunctions.AutoFish then
+            -- Memicu fungsi klik tombol asli Lynx lewat latar belakang
+            pcall(LynxFunctions.AutoFish)
+        else
+            -- Backup plan menggunakan variabel global standar jika fungsi belum tercatat
+            _G.AutoFish = Value
+            _G.AutoCast = Value
+            _G.AutoCatch = Value
+        end
     end
 })
 
--- Contoh Fitur Auto Event (Megalodon / Shark Hunt) seperti di screenshot kamu
 EventTab:AddToggle({
     Name = "Auto Event Teleport (Megalodon/Shark)",
     Default = false,
     Callback = function(Value)
-        _G.AutoEvent = Value
-        _G.MegalodonHunt = Value
+        if LynxFunctions.AutoEvent then
+            pcall(LynxFunctions.AutoEvent)
+        else
+            _G.AutoEvent = Value
+        end
     end
 })
 
-EventTab:AddButton({
-    Name = "Refresh Event List",
-    Callback = function()
-        -- Memicu fungsi refresh bawaan game/script
-        print("DimsHUB: Refreshing Event List...")
-    end
-})
-
--- Contoh Fitur Teleport ke NPC
 TeleportTab:AddButton({
     Name = "Teleport to NPC Penjual",
     Callback = function()
-        -- Memicu fungsi teleport bawaan script aslinya jika tersedia,
-        -- atau menggunakan koordinat manual jika kamu sudah menyimpannya.
-        print("DimsHUB: Teleporting to NPC...")
+        if LynxFunctions.TeleportNPC then
+            pcall(LynxFunctions.TeleportNPC)
+        else
+            print("DimsHUB: Fungsi teleport belum siap, pastikan script sudah ter-load sempurna.")
+        end
     end
 })
 
 OrionLib:Init()
+            
